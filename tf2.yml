@@ -1,0 +1,22 @@
+name: tf2_gpu
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.7
+  - jupyterlab
+  - rdkit
+  - seaborn
+  - pandas
+  - scikit-learn
+  - jupyter
+  - notebook
+  - pip
+  - pymatgen
+  - xlrd
+  - tqdm
+  - tensorflow-gpu
+  - pip
+  - pip:
+    - nfp
+

@@ -2,6 +2,12 @@ import os
 
 import numpy as np
 import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    # Currently, memory growth needs to be the same across GPUs
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
 from tensorflow.keras import layers
 
 import nfp
@@ -30,12 +36,11 @@ def parse_example(example):
     
     return parsed, bde
 
-max_atoms = 48  # These allow prespecifying array shapes, i.e. for CUDA cores
+max_atoms = 32
 max_bonds = 64
 batch_size = 128
 atom_features = 128
 num_messages = 6
-
 
 # Here, we have to add the prediction target padding onto the input padding
 padded_shapes = (preprocessor.padded_shapes(max_atoms=max_atoms, max_bonds=max_bonds),
@@ -83,40 +88,41 @@ bond_state = layers.Embedding(preprocessor.bond_classes, atom_features,
 bond_mean = layers.Embedding(preprocessor.bond_classes, 1,
                              name='bond_mean', mask_zero=True)(bond_class)
 
-def message_block(original_atom_state, original_bond_state, connectivity, i):
+# def message_block(original_atom_state, original_bond_state, connectivity, i):
     
-    atom_state = layers.LayerNormalization()(original_atom_state)
-    bond_state = layers.LayerNormalization()(original_bond_state)
+#     atom_state = layers.LayerNormalization()(original_atom_state)
+#     bond_state = layers.LayerNormalization()(original_bond_state)
     
-    source_atom = nfp.Gather()([atom_state, nfp.Slice(np.s_[:, :, 1])(connectivity)])
-    target_atom = nfp.Gather()([atom_state, nfp.Slice(np.s_[:, :, 0])(connectivity)])
+#     source_atom = nfp.Gather()([atom_state, nfp.Slice(np.s_[:, :, 1])(connectivity)])
+#     target_atom = nfp.Gather()([atom_state, nfp.Slice(np.s_[:, :, 0])(connectivity)])
 
-    # Edge update network
-    new_bond_state = layers.Concatenate(name='concat_{}'.format(i))(
-        [source_atom, target_atom, bond_state])
-    new_bond_state = layers.Dense(
-        2*atom_features, activation='relu')(new_bond_state)
-    new_bond_state = layers.Dense(atom_features)(new_bond_state)
+#     # Edge update network
+#     new_bond_state = layers.Concatenate(name='concat_{}'.format(i))(
+#         [source_atom, target_atom, bond_state])
+#     new_bond_state = layers.Dense(
+#         2*atom_features, activation='relu')(new_bond_state)
+#     new_bond_state = layers.Dense(atom_features)(new_bond_state)
 
-    bond_state = layers.Add()([original_bond_state, new_bond_state])
+#     bond_state = layers.Add()([original_bond_state, new_bond_state])
 
-    # message function
-    source_atom = layers.Dense(atom_features)(source_atom)    
-    messages = layers.Multiply()([source_atom, bond_state])
-    messages = nfp.Reduce(reduction='sum')(
-        [messages, nfp.Slice(np.s_[:, :, 0])(connectivity), atom_state])
+#     # message function
+#     source_atom = layers.Dense(atom_features)(source_atom)    
+#     messages = layers.Multiply()([source_atom, bond_state])
+#     messages = nfp.Reduce(reduction='sum')(
+#         [messages, nfp.Slice(np.s_[:, :, 0])(connectivity), atom_state])
     
-    # state transition function
-    messages = layers.Dense(atom_features, activation='relu')(messages)
-    messages = layers.Dense(atom_features)(messages)
+#     # state transition function
+#     messages = layers.Dense(atom_features, activation='relu')(messages)
+#     messages = layers.Dense(atom_features)(messages)
     
-    atom_state = layers.Add()([original_atom_state, messages])
+#     atom_state = layers.Add()([original_atom_state, messages])
     
-    return atom_state, bond_state
+#     return atom_state, bond_state
 
 for i in range(num_messages):
-    atom_state, bond_state = message_block(atom_state, bond_state, connectivity, i)
-
+    bond_state = nfp.EdgeUpdate()([atom_state, bond_state, connectivity])
+    atom_state = nfp.NodeUpdate()([atom_state, bond_state, connectivity])    
+    
 bond_state = nfp.Reduce(reduction='mean')([bond_state, bond_indices, bond_state])
 bond_mean = nfp.Reduce(reduction='mean')([bond_mean, bond_indices, bond_mean])
 

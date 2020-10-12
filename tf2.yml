@@ -11,12 +11,8 @@ dependencies:
   - scikit-learn
   - jupyter
   - notebook
-  - pip
   - pymatgen
   - xlrd
   - tqdm
   - tensorflow-gpu
-  - pip
-  - pip:
-    - nfp
-
+  - psycopg2

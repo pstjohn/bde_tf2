@@ -9,3 +9,11 @@ then load with
 ```
 conda activate /projects/<a project>/<your name>/envs/tf2_gpu
 ```
+
+
+## Steps
+
+1. run pull_rdf_database.ipynb (writes to a CSV)
+2. run preprocess_inputs.py
+
+

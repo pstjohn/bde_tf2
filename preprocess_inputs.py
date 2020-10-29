@@ -45,7 +45,7 @@ preprocessor = nfp.SmilesPreprocessor(
 
 if __name__ == '__main__':
             
-    bde = pd.read_csv('20200614_rdf_new_elements.csv.gz', index_col=0)
+    bde = pd.read_csv('20201015_rdf_new_elements.csv.gz', index_col=0)
 
     train = bde[bde.set == 'train'].molecule.unique()
     valid = bde[bde.set == 'valid'].molecule.unique()

@@ -28,25 +28,22 @@ def parse_example(example):
         if val.dtype == tf.string:
             parsed[key] = tf.io.parse_tensor(
                 parsed[key], out_type=preprocessor.output_types[key])
-    
+            parsed[key].set_shape([None] * len(preprocessor.padded_shapes()[key]))
+            
     # Pop out the prediction target from the stored dictionary as a seperate input
     parsed['bde'] = tf.io.parse_tensor(parsed['bde'], out_type=tf.float64)
     parsed['bdfe'] = tf.io.parse_tensor(parsed['bdfe'], out_type=tf.float64)
     
     bde = parsed.pop('bde')
-    bdfe = parsed.pop('bdfe')    
+    bdfe = parsed.pop('bdfe')
+    bde.set_shape([None])
+    bdfe.set_shape([None])
     
     return parsed, {'bde': bde, 'bdfe': bdfe}
 
-max_atoms = 32
-max_bonds = 64
 batch_size = 128
 atom_features = 128
 num_messages = 6
-
-# Here, we have to add the prediction target padding onto the input padding
-padded_shapes = (preprocessor.padded_shapes(max_atoms=max_atoms, max_bonds=max_bonds),
-                 {'bde': [max_bonds,], 'bdfe': [max_bonds,]})
 
 nan = tf.constant(np.nan, dtype=tf.float64)
 padding_values = (preprocessor.padding_values, {'bde': nan, 'bdfe': nan})
@@ -54,17 +51,13 @@ padding_values = (preprocessor.padding_values, {'bde': nan, 'bdfe': nan})
 train_dataset = tf.data.TFRecordDataset('tfrecords/train.tfrecord.gz', compression_type='GZIP')\
     .map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
     .cache().shuffle(buffer_size=500)\
-    .padded_batch(batch_size=batch_size,
-                  padded_shapes=padded_shapes,
-                  padding_values=padding_values)\
+    .padded_batch(batch_size=batch_size, padding_values=padding_values)\
     .prefetch(tf.data.experimental.AUTOTUNE)
 
 valid_dataset = tf.data.TFRecordDataset('tfrecords/valid.tfrecord.gz', compression_type='GZIP')\
     .map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
     .cache().shuffle(buffer_size=500)\
-    .padded_batch(batch_size=batch_size,
-                  padded_shapes=padded_shapes,
-                  padding_values=padding_values)\
+    .padded_batch(batch_size=batch_size, padding_values=padding_values)\
     .prefetch(tf.data.experimental.AUTOTUNE)
 
 

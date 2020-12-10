@@ -36,10 +36,15 @@ def parse_example(example):
     
     bde = parsed.pop('bde')
     bdfe = parsed.pop('bdfe')
-    bde.set_shape([None])
-    bdfe.set_shape([None])
+        
+    bde.set_shape(parsed['bond'].shape)
+    bdfe.set_shape(parsed['bond'].shape)
     
+    bde = tf.concat([bde, tf.ones_like(bde) * tf.constant(np.nan, dtype=tf.float64)], axis=0)
+    bdfe = tf.concat([bdfe, tf.ones_like(bdfe) * tf.constant(np.nan, dtype=tf.float64)], axis=0)
+
     return parsed, {'bde': bde, 'bdfe': bdfe}
+
 
 batch_size = 128
 atom_features = 128
@@ -103,11 +108,11 @@ bdfe_pred = layers.Add(name='bdfe')([bdfe_pred, bdfe_mean])
 model = tf.keras.Model(input_tensors, [bde_pred, bdfe_pred])
 
 learning_rate = tf.keras.optimizers.schedules.InverseTimeDecay(1E-3, 1, 1E-5)
-weight_decay  = tf.keras.optimizers.schedules.InverseTimeDecay(1E-4, 1, 1E-5)
+weight_decay  = tf.keras.optimizers.schedules.InverseTimeDecay(1E-5, 1, 1E-5)
 optimizer = tfa.optimizers.AdamW(learning_rate=learning_rate, weight_decay=weight_decay)
 model.compile(loss=nfp.masked_mean_absolute_error, optimizer=optimizer)
 
-model_name = '20201010_model_more_wd'
+model_name = '20201210_model_padding'
 
 if not os.path.exists(model_name):
     os.makedirs(model_name)
